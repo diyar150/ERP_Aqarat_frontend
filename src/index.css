@@ -1,0 +1,251 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Rudaw";
+  src: url("./assets/fonts/rudawregular2.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rudaw";
+  src: url("./assets/fonts/rudawbold.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Kufi Arabic";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("./assets/fonts/NotoKufiArabic-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("./assets/fonts/OpenSans-Regular.ttf") format("truetype");
+}
+
+
+
+
+/* Light Mode Setup (from tajcarpet, tied to MUI theme selector) */
+:root,
+[data-mui-color-scheme="light"] {
+  --background: #FFFFFF
+    /* oklch(1 0 0) */
+  ;
+  --foreground: #252525
+    /* oklch(0.145 0 0) */
+  ;
+  --card: #FFFFFF;
+  --card-foreground: #252525;
+  --popover: #FFFFFF;
+  --popover-foreground: #252525;
+  --primary: #2563EB
+    /* modern technology blue */
+  ;
+  --primary-foreground: #FFFFFF
+    /* oklch(0.985 0 0) */
+  ;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #252525;
+  --muted: #FAFAFA
+    /* oklch(0.97 0 0) */
+  ;
+  --muted-foreground: #71717A;
+  --accent: #FAFAFA;
+  --accent-foreground: #252525;
+  --destructive: #DC2626;
+  --border: #EBEBEB
+    /* oklch(0.922 0 0) */
+  ;
+  --input: #EBEBEB;
+  --ring: #A1A1AA;
+  --radius: 0.625rem;
+
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #252525;
+  --sidebar-border: #EBEBEB;
+  --sidebar-accent: #F4F4F5;
+  --sidebar-accent-foreground: #252525;
+
+  --gold: #d4af37;
+  --gold-light: #f6d365;
+  --gold-dark: #b8972e;
+  --gold-muted: rgba(212, 175, 55, 0.15);
+  --gold-shadow: rgba(212, 175, 55, 0.35);
+}
+
+/* Dark Mode Setup (from tajcarpet, tied to MUI theme selector) */
+[data-mui-color-scheme="dark"] {
+  --background: #0A0A0A;
+  --foreground: #FAFAFA;
+  --card: #141414;
+  --card-foreground: #FAFAFA;
+  --popover: #141414;
+  --popover-foreground: #FAFAFA;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1F1F1F;
+  --secondary-foreground: #FAFAFA;
+  --muted: #1F1F1F;
+  --muted-foreground: #A1A1AA;
+  --accent: #1F1F1F;
+  --accent-foreground: #FAFAFA;
+  --destructive: #991B1B;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #71717A;
+
+  --sidebar: #0A0A0A;
+  --sidebar-foreground: #FAFAFA;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-accent: #1F1F1F;
+  --sidebar-accent-foreground: #FAFAFA;
+}
+
+@theme inline {
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  --font-arabic: "Noto Kufi Arabic", "Rudaw", sans-serif;
+  --font-english: "Open Sans", sans-serif;
+}
+
+
+.font-arabic {
+  font-family: var(--font-arabic) !important;
+}
+
+.font-english {
+  font-family: var(--font-english) !important;
+}
+
+body[dir="rtl"],
+[dir="rtl"] * {
+  font-family: var(--font-arabic);
+}
+
+body[dir="ltr"],
+[dir="ltr"] * {
+  font-family: var(--font-english);
+}
+
+
+.swal2-container * {
+  font-family: var(--font-arabic) !important;
+}
+
+/* Remove number input increase/decrease arrows. */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* For MUI TextField components */
+.MuiTextField-root input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.MuiTextField-root input[type=number]::-webkit-outer-spin-button,
+.MuiTextField-root input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Make MUI required asterisks red */
+.MuiFormLabel-asterisk {
+  color: #dc2626 !important;
+}
+
+/* Fix MUI Select for RTL - make rules with high specificity */
+[dir="rtl"] .MuiSelect-root .MuiSelect-select {
+  text-align: right !important;
+  padding-right: 14px !important;
+  padding-left: 40px !important;
+}
+
+[dir="rtl"] .MuiSelect-root .MuiSelect-icon,
+[dir="rtl"] .MuiSelect-root .MuiSelect-iconOutlined {
+  left: 10px !important;
+  right: unset !important;
+}
+
+[dir="rtl"] .MuiMenuItem-root {
+  text-align: right !important;
+  justify-content: flex-start !important;
+}
+
+/* Responsive shell helpers */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+@supports (height: 100dvh) {
+  .h-dvh {
+    height: 100dvh;
+  }
+  .max-h-dvh {
+    max-height: 100dvh;
+  }
+}
+
+@media print {
+  .app-sidebar,
+  .app-topbar,
+  .no-print {
+    display: none !important;
+  }
+
+  .h-dvh,
+  .max-h-dvh,
+  .overflow-hidden {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+/* Touch-friendly horizontal table scroll */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
