@@ -5,12 +5,15 @@ import {
     Alert,
     Box,
     Button,
+    Card,
+    CardContent,
     Chip,
     Paper,
     Stack,
     ToggleButton,
     ToggleButtonGroup,
     Typography,
+    alpha,
     useTheme,
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -44,9 +47,7 @@ import {
 } from './contractForm.js';
 import { contractError } from './contractError.js';
 import {
-    getContractColor,
-    getContractMetricCardStyle,
-    getContractIconBoxStyle,
+    getContractPalette,
     getContractStatusBadge,
 } from './contractColors.js';
 
@@ -56,51 +57,91 @@ const TERMS = ['expiring', 'expired'];
 const OPTIONAL_COLUMNS = ['type', 'property', 'branch', 'parties', 'period', 'user', 'date'];
 
 /**
- * Modern ERP Interactive Metric Card with Theme Adaptivity & High Contrast.
- * Uses neutral background compatible with light and dark mode, with a colored icon badge.
+ * Modern ERP Interactive Metric Card matching the Transactions section style.
+ * Card layout with label and colored number on left, and themed 38px icon squircle on right.
  */
-function KpiMetricCard({ icon: Icon, type, label, value, subtitle, isSelected, onClick }) {
+function ContractMetricCard({
+    paletteKey,
+    label,
+    value,
+    icon: IconComponent,
+    active,
+    onClick,
+}) {
     const theme = useTheme();
-    const isDark = theme.palette.mode === 'dark';
-    const cardSx = getContractMetricCardStyle(type, isDark, isSelected);
-    const iconSx = getContractIconBoxStyle(type, isDark);
+    const colors = getContractPalette(theme, paletteKey);
 
     return (
-        <Paper
+        <Card
             variant="outlined"
             onClick={onClick}
-            sx={cardSx}
+            sx={{
+                flex: '1 1 160px',
+                minWidth: 150,
+                borderRadius: 2,
+                cursor: onClick ? 'pointer' : 'default',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                borderWidth: active ? 2 : 1,
+                borderColor: active ? colors.hoverBorder : colors.borderColor,
+                backgroundColor: active
+                    ? alpha(colors.hoverBorder, theme.palette.mode === 'dark' ? 0.18 : 0.08)
+                    : colors.bgColor,
+                boxShadow: active
+                    ? `0 4px 14px 0 ${colors.hoverShadow}`
+                    : 'none',
+                '&:hover': onClick ? {
+                    borderColor: colors.hoverBorder,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 6px 18px 0 ${colors.hoverShadow}`,
+                } : {},
+            }}
         >
-            <Box sx={iconSx}>
-                <Icon fontSize="medium" />
-            </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    noWrap
-                    sx={{ display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}
-                >
-                    {label}
-                </Typography>
-                <Typography
-                    variant="h5"
-                    sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, mt: 0.25 }}
-                >
-                    {value ?? 0}
-                </Typography>
-                {subtitle && (
-                    <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        noWrap
-                        sx={{ display: 'block', mt: 0.25, fontSize: '0.72rem' }}
+            <CardContent sx={{ p: '14px 16px !important' }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                                color: theme.palette.mode === 'dark' ? 'text.secondary' : 'text.primary',
+                                display: 'block',
+                                noWrap: true,
+                            }}
+                        >
+                            {label}
+                        </Typography>
+                        <Typography
+                            variant="h5"
+                            sx={{
+                                fontWeight: 800,
+                                mt: 0.25,
+                                color: colors.iconColor,
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            {value ?? 0}
+                        </Typography>
+                    </Box>
+                    <Box
+                        sx={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: alpha(colors.iconColor, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                            color: colors.iconColor,
+                            flexShrink: 0,
+                        }}
                     >
-                        {subtitle}
-                    </Typography>
-                )}
-            </Box>
-        </Paper>
+                        <IconComponent sx={{ fontSize: 22 }} />
+                    </Box>
+                </Stack>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -545,63 +586,58 @@ export default function Index() {
             {list.error && <Alert severity="error" sx={{ mb: 2 }}>{list.error}</Alert>}
             {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
 
-            {/* 5 Modern Theme-Adaptive KPI Metric Cards */}
-            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap', width: '100%' }}>
-                <KpiMetricCard
-                    icon={AssignmentOutlinedIcon}
-                    type="total"
+            {/* Top Interactive KPI Metric Cards */}
+            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }}>
+                <ContractMetricCard
+                    paletteKey="total"
                     label={t('contracts.summary_contracts')}
                     value={summary.contracts}
-                    subtitle={t('contracts.all_records') || 'All records in register'}
-                    isSelected={!list.filters.type && !list.filters.term && list.filters.state !== 'archived'}
+                    icon={AssignmentOutlinedIcon}
+                    active={!list.filters.type && !list.filters.term && list.filters.state !== 'archived'}
                     onClick={() => {
                         list.setFilter('type', '');
                         list.setFilter('term', '');
                         list.setFilter('state', '');
                     }}
                 />
-                <KpiMetricCard
-                    icon={CheckCircleOutlinedIcon}
-                    type="active"
+                <ContractMetricCard
+                    paletteKey="active"
                     label={t('contracts.active')}
                     value={summary.active}
-                    subtitle={t('contracts.active_signed') || 'Enforceable & signed'}
-                    isSelected={list.filters.state !== 'archived' && !list.filters.type && !list.filters.term}
+                    icon={CheckCircleOutlinedIcon}
+                    active={list.filters.state !== 'archived' && !list.filters.type && !list.filters.term}
                     onClick={() => {
                         list.setFilter('state', '');
                         list.setFilter('type', '');
                         list.setFilter('term', '');
                     }}
                 />
-                <KpiMetricCard
-                    icon={TimerOutlinedIcon}
-                    type="expiring"
+                <ContractMetricCard
+                    paletteKey="expiring"
                     label={t('contracts.expiring')}
                     value={summary.expiring || 0}
-                    subtitle={t('contracts.within_30_days') || 'Expires within 30 days'}
-                    isSelected={list.filters.term === 'expiring'}
+                    icon={TimerOutlinedIcon}
+                    active={list.filters.term === 'expiring'}
                     onClick={() => {
                         list.setFilter('term', list.filters.term === 'expiring' ? '' : 'expiring');
                     }}
                 />
-                <KpiMetricCard
-                    icon={KeyOutlinedIcon}
-                    type="rent"
+                <ContractMetricCard
+                    paletteKey="rent"
                     label={t('contracts.summary_rents')}
                     value={summary.rents || 0}
-                    subtitle={t('contracts.lease_agreements') || 'Rental agreements'}
-                    isSelected={list.filters.type === 'rent'}
+                    icon={KeyOutlinedIcon}
+                    active={list.filters.type === 'rent'}
                     onClick={() => {
                         list.setFilter('type', list.filters.type === 'rent' ? '' : 'rent');
                     }}
                 />
-                <KpiMetricCard
-                    icon={MonetizationOnOutlinedIcon}
-                    type="sale"
+                <ContractMetricCard
+                    paletteKey="sale"
                     label={t('contracts.summary_sales')}
                     value={summary.sales || 0}
-                    subtitle={t('contracts.sales_contracts') || 'Ownership transfers'}
-                    isSelected={list.filters.type === 'sale'}
+                    icon={MonetizationOnOutlinedIcon}
+                    active={list.filters.type === 'sale'}
                     onClick={() => {
                         list.setFilter('type', list.filters.type === 'sale' ? '' : 'sale');
                     }}

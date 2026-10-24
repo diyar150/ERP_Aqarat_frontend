@@ -126,6 +126,21 @@ export function getContractColor(type, isDark = false) {
 }
 
 /**
+ * Returns the theme-specific color palette for a given contract KPI key.
+ * Compatible with MUI theme and identical to getTransactionPalette.
+ *
+ * @param {object} theme - MUI theme object.
+ * @param {string} key - 'total' | 'active' | 'expiring' | 'rent' | 'sale' | 'archived'
+ * @returns {object} Palette object containing iconColor, bgColor, borderColor, hoverBorder, hoverShadow.
+ */
+export function getContractPalette(theme, key) {
+    const isDark = theme?.palette?.mode === 'dark';
+    const fallback = CONTRACT_COLOR_PALETTES.total[isDark ? 'dark' : 'light'];
+    const palette = CONTRACT_COLOR_PALETTES[key] || CONTRACT_COLOR_PALETTES.total;
+    return palette[isDark ? 'dark' : 'light'] || fallback;
+}
+
+/**
  * Returns style attributes for modern clickable KPI cards.
  * Neutral background compatible with light and dark mode, highlighting borders and elevation on hover/select.
  */

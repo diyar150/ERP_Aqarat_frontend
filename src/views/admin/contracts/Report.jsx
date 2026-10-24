@@ -6,10 +6,13 @@ import {
     Alert,
     Box,
     Button,
+    Card,
+    CardContent,
     Chip,
     Paper,
     Stack,
     Typography,
+    alpha,
     useTheme,
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -37,9 +40,7 @@ import {
 } from './contractForm.js';
 import { contractError } from './contractError.js';
 import {
-    getContractColor,
-    getContractMetricCardStyle,
-    getContractIconBoxStyle,
+    getContractPalette,
 } from './contractColors.js';
 
 const TYPES = ['sale', 'rent'];
@@ -47,38 +48,88 @@ const STATUSES = ['active', 'archived'];
 const DEAL_STATUSES = ['draft', 'open', 'completed', 'cancelled'];
 const TERMS = ['expiring', 'expired'];
 
-function KpiMetricCard({ icon: Icon, type, label, value, isSelected, onClick }) {
+function ContractMetricCard({
+    paletteKey,
+    label,
+    value,
+    icon: IconComponent,
+    active,
+    onClick,
+}) {
     const theme = useTheme();
-    const isDark = theme.palette.mode === 'dark';
-    const cardSx = getContractMetricCardStyle(type, isDark, isSelected);
-    const iconSx = getContractIconBoxStyle(type, isDark);
+    const colors = getContractPalette(theme, paletteKey);
 
     return (
-        <Paper
+        <Card
             variant="outlined"
             onClick={onClick}
-            sx={{ ...cardSx, minWidth: 160 }}
+            sx={{
+                flex: '1 1 160px',
+                minWidth: 150,
+                borderRadius: 2,
+                cursor: onClick ? 'pointer' : 'default',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                borderWidth: active ? 2 : 1,
+                borderColor: active ? colors.hoverBorder : colors.borderColor,
+                backgroundColor: active
+                    ? alpha(colors.hoverBorder, theme.palette.mode === 'dark' ? 0.18 : 0.08)
+                    : colors.bgColor,
+                boxShadow: active
+                    ? `0 4px 14px 0 ${colors.hoverShadow}`
+                    : 'none',
+                '&:hover': onClick ? {
+                    borderColor: colors.hoverBorder,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 6px 18px 0 ${colors.hoverShadow}`,
+                } : {},
+            }}
         >
-            <Box sx={iconSx}>
-                <Icon fontSize="medium" />
-            </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    noWrap
-                    sx={{ display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}
-                >
-                    {label}
-                </Typography>
-                <Typography
-                    variant="h5"
-                    sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, mt: 0.25 }}
-                >
-                    {value ?? 0}
-                </Typography>
-            </Box>
-        </Paper>
+            <CardContent sx={{ p: '14px 16px !important' }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                                color: theme.palette.mode === 'dark' ? 'text.secondary' : 'text.primary',
+                                display: 'block',
+                                noWrap: true,
+                            }}
+                        >
+                            {label}
+                        </Typography>
+                        <Typography
+                            variant="h5"
+                            sx={{
+                                fontWeight: 800,
+                                mt: 0.25,
+                                color: colors.iconColor,
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            {value ?? 0}
+                        </Typography>
+                    </Box>
+                    <Box
+                        sx={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: alpha(colors.iconColor, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                            color: colors.iconColor,
+                            flexShrink: 0,
+                        }}
+                    >
+                        <IconComponent sx={{ fontSize: 22 }} />
+                    </Box>
+                </Stack>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -269,53 +320,53 @@ export default function Report() {
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
             {/* KPI Cards Strip */}
-            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap', width: '100%' }}>
-                <KpiMetricCard
-                    icon={AssignmentOutlinedIcon}
-                    type="total"
+            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }}>
+                <ContractMetricCard
+                    paletteKey="total"
                     label={t('contracts.summary_contracts')}
                     value={summary.contracts}
-                    isSelected={!type && !status && !term}
+                    icon={AssignmentOutlinedIcon}
+                    active={!type && !status && !term}
                     onClick={() => { setType(''); setStatus(''); setTerm(''); }}
                 />
-                <KpiMetricCard
-                    icon={MonetizationOnOutlinedIcon}
-                    type="sale"
+                <ContractMetricCard
+                    paletteKey="sale"
                     label={t('contracts.summary_sales')}
                     value={summary.sales}
-                    isSelected={type === 'sale'}
+                    icon={MonetizationOnOutlinedIcon}
+                    active={type === 'sale'}
                     onClick={() => setType(type === 'sale' ? '' : 'sale')}
                 />
-                <KpiMetricCard
-                    icon={KeyOutlinedIcon}
-                    type="rent"
+                <ContractMetricCard
+                    paletteKey="rent"
                     label={t('contracts.summary_rents')}
                     value={summary.rents}
-                    isSelected={type === 'rent'}
+                    icon={KeyOutlinedIcon}
+                    active={type === 'rent'}
                     onClick={() => setType(type === 'rent' ? '' : 'rent')}
                 />
-                <KpiMetricCard
-                    icon={CheckCircleOutlinedIcon}
-                    type="active"
+                <ContractMetricCard
+                    paletteKey="active"
                     label={t('contracts.active')}
                     value={summary.active}
-                    isSelected={status === 'active'}
+                    icon={CheckCircleOutlinedIcon}
+                    active={status === 'active'}
                     onClick={() => setStatus(status === 'active' ? '' : 'active')}
                 />
-                <KpiMetricCard
-                    icon={TimerOutlinedIcon}
-                    type="expiring"
+                <ContractMetricCard
+                    paletteKey="expiring"
                     label={t('contracts.expiring')}
                     value={summary.expiring || 0}
-                    isSelected={term === 'expiring'}
+                    icon={TimerOutlinedIcon}
+                    active={term === 'expiring'}
                     onClick={() => setTerm(term === 'expiring' ? '' : 'expiring')}
                 />
-                <KpiMetricCard
-                    icon={ArchiveOutlinedIcon}
-                    type="archived"
+                <ContractMetricCard
+                    paletteKey="archived"
                     label={t('contracts.archived')}
                     value={summary.archived}
-                    isSelected={status === 'archived'}
+                    icon={ArchiveOutlinedIcon}
+                    active={status === 'archived'}
                     onClick={() => setStatus(status === 'archived' ? '' : 'archived')}
                 />
             </Stack>
