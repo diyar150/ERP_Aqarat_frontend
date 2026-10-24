@@ -183,7 +183,7 @@ export default function Show() {
     const parties = contract.parties || [];
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={`${contractNumber(contract.id)} · ${contract.reference_number || ''}`}
                 description={t('contracts.show_hint')}

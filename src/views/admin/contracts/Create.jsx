@@ -242,7 +242,7 @@ export default function Create() {
     }
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={t('contracts.create_title')}
                 description={t('contracts.create_hint')}

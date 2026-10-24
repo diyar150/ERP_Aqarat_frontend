@@ -42,27 +42,7 @@ export function contractFileSize(bytes) {
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function contractError(err, t) {
-    const status = err.response?.status;
-    const message = err.response?.data?.error?.message || '';
-    const fields = err.response?.data?.error?.fields || {};
-    if (fields.reason) return t('contracts.reason_required');
-    if (fields.version) return t('contracts.stale');
-    if (fields.transaction_id) {
-        return /not open/i.test(String(fields.transaction_id))
-            ? t('contracts.deal_not_open')
-            : t('contracts.deal_cancelled_issue');
-    }
-    if (fields.renewed_from_id) return t('contracts.renewal_property');
-    if (fields.idempotency_key) return t('contracts.idempotency_invalid');
-    if (status === 409 && /template/i.test(message)) return t('contracts.duplicate_template');
-    if (status === 409 && /signed/i.test(message)) return t('contracts.signed_locked');
-    if (status === 409 && /updated/i.test(message)) return t('contracts.stale');
-    if (status === 409 && /reused/i.test(message)) return t('contracts.idempotency_reused');
-    if (status === 409 && /progress/i.test(message)) return t('contracts.idempotency_busy');
-    if (status === 409) return t('contracts.archived_locked');
-    return message || t('login.error');
-}
+export { contractError } from './contractError.js';
 
 /** Fetch a contract/template PDF blob URL for in-app preview. Caller must revoke. */
 export async function loadContractPdfUrl(row) {

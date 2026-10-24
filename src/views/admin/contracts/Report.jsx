@@ -2,7 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
+import {
+    Alert,
+    Box,
+    Button,
+    Chip,
+    Paper,
+    Stack,
+    Typography,
+    useTheme,
+} from '@mui/material';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import fetch from '@/utils/fetch';
 import PageHeader from '@/components/workspace/PageHeader.jsx';
 import ListToolbar from '@/components/workspace/ListToolbar.jsx';
@@ -11,20 +22,90 @@ import { PdfTable } from '@/components/common/PdfReportTable.jsx';
 import PdfReportPreview from '@/components/common/PdfReportPreview.jsx';
 import useIsRTL from '@/hooks/useIsRTL';
 import { loadPdfCompany } from '@/utils/pdfCompany';
-import { contractAmount, contractError, contractNumber, contractParties, contractPeriod, contractWhen } from './contractForm.js';
+import {
+    contractAmount,
+    contractNumber,
+    contractParties,
+    contractPeriod,
+    contractWhen,
+} from './contractForm.js';
+import { contractError } from './contractError.js';
+import { getContractColor, getContractMetricCardStyle } from './contractColors.js';
 
 const TYPES = ['sale', 'rent'];
 const STATUSES = ['active', 'archived'];
 const DEAL_STATUSES = ['draft', 'open', 'completed', 'cancelled'];
 const TERMS = ['expiring', 'expired'];
 
-function SummaryCard({ label, value }) {
+function KpiMetricCard({ type, label, value, isSelected, onClick }) {
+    const theme = useTheme();
+    const isDark = theme.palette.mode === 'dark';
+    const colors = getContractColor(type, isDark);
+    const cardSx = getContractMetricCardStyle(type, isDark, isSelected);
+
     return (
-        <Paper variant="outlined" sx={{ px: 2, py: 1.5, flex: '1 1 140px', minWidth: 140 }}>
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
-            <Typography variant="h6" fontWeight={700}>{value}</Typography>
+        <Paper
+            variant="outlined"
+            onClick={onClick}
+            sx={{ ...cardSx, minWidth: 150 }}
+        >
+            <Typography variant="caption" sx={{ color: colors.iconColor, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {label}
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+                {value}
+            </Typography>
         </Paper>
     );
+}
+
+function exportContractsCsv(items, t) {
+    if (!items || !items.length) return;
+    const headers = [
+        `"${t('contracts.number')}"`,
+        `"${t('contracts.deal')}"`,
+        `"${t('contracts.type')}"`,
+        `"${t('contracts.status')}"`,
+        `"${t('contracts.property')}"`,
+        `"${t('contracts.parties')}"`,
+        `"${t('contracts.amount')}"`,
+        `"${t('contracts.period')}"`,
+        `"${t('contracts.date')}"`,
+    ];
+
+    const rows = items.map((row) => {
+        const amount = row.transaction_type === 'rent' ? row.rent_amount : row.purchase_price;
+        const propTitle = [row.property_reference, row.property_title].filter(Boolean).join(' · ');
+        const partiesStr = (row.parties || [])
+            .map((p) => `${t(`transactions.roles.${p.role}`, { defaultValue: p.role })}: ${p.name}`)
+            .join('; ');
+        const period = row.transaction_type === 'rent'
+            ? `${contractWhen(row.period_start)} – ${contractWhen(row.period_end)}`
+            : '';
+
+        return [
+            `"${contractNumber(row.id)}"`,
+            `"${(row.reference_number || '').replace(/"/g, '""')}"`,
+            `"${t(`contracts.${row.transaction_type}`, { defaultValue: row.transaction_type })}"`,
+            `"${t(`contracts.${row.status}`, { defaultValue: row.status })}"`,
+            `"${propTitle.replace(/"/g, '""')}"`,
+            `"${partiesStr.replace(/"/g, '""')}"`,
+            `"${amount != null && amount !== '' ? amount : ''}"`,
+            `"${period.replace(/"/g, '""')}"`,
+            `"${contractWhen(row.created_at)}"`,
+        ];
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `contracts-report-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
 
 export default function Report() {
@@ -139,25 +220,77 @@ export default function Report() {
     );
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={t('contracts.report_title')}
                 description={t('contracts.report_hint')}
                 action={(
-                    <Stack direction="row" spacing={1}>
-                        <Button onClick={() => navigate('/admin/contracts/index')}>{t('contracts.back')}</Button>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<FileDownloadIcon />}
+                            onClick={() => exportContractsCsv(items, t)}
+                            disabled={loading || items.length === 0}
+                        >
+                            {t('contracts.export_csv') || 'Export CSV'}
+                        </Button>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate('/admin/contracts/index')}
+                        >
+                            {t('contracts.back')}
+                        </Button>
                     </Stack>
                 )}
             />
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                <SummaryCard label={t('contracts.summary_contracts')} value={summary.contracts} />
-                <SummaryCard label={t('contracts.summary_sales')} value={summary.sales} />
-                <SummaryCard label={t('contracts.summary_rents')} value={summary.rents} />
-                <SummaryCard label={t('contracts.active')} value={summary.active} />
-                <SummaryCard label={t('contracts.archived')} value={summary.archived} />
-                <SummaryCard label={t('contracts.expiring')} value={summary.expiring || 0} />
+
+            {/* KPI Cards Strip */}
+            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap', width: '100%' }}>
+                <KpiMetricCard
+                    type="total"
+                    label={t('contracts.summary_contracts')}
+                    value={summary.contracts}
+                    isSelected={!type && !status && !term}
+                    onClick={() => { setType(''); setStatus(''); setTerm(''); }}
+                />
+                <KpiMetricCard
+                    type="sale"
+                    label={t('contracts.summary_sales')}
+                    value={summary.sales}
+                    isSelected={type === 'sale'}
+                    onClick={() => setType(type === 'sale' ? '' : 'sale')}
+                />
+                <KpiMetricCard
+                    type="rent"
+                    label={t('contracts.summary_rents')}
+                    value={summary.rents}
+                    isSelected={type === 'rent'}
+                    onClick={() => setType(type === 'rent' ? '' : 'rent')}
+                />
+                <KpiMetricCard
+                    type="active"
+                    label={t('contracts.active')}
+                    value={summary.active}
+                    isSelected={status === 'active'}
+                    onClick={() => setStatus(status === 'active' ? '' : 'active')}
+                />
+                <KpiMetricCard
+                    type="expiring"
+                    label={t('contracts.expiring')}
+                    value={summary.expiring || 0}
+                    isSelected={term === 'expiring'}
+                    onClick={() => setTerm(term === 'expiring' ? '' : 'expiring')}
+                />
+                <KpiMetricCard
+                    type="archived"
+                    label={t('contracts.archived')}
+                    value={summary.archived}
+                    isSelected={status === 'archived'}
+                    onClick={() => setStatus(status === 'archived' ? '' : 'archived')}
+                />
             </Stack>
+
             <Box sx={{ mb: 2 }}>
                 <ListToolbar
                     search={query}
@@ -208,7 +341,7 @@ export default function Report() {
                     ]}
                 />
             </Box>
-            <Paper variant="outlined" sx={{ overflow: 'hidden', minHeight: 520 }}>
+            <Paper variant="outlined" sx={{ overflow: 'hidden', minHeight: 520, borderRadius: 2 }}>
                 <PdfReportPreview
                     loading={loading}
                     ready={!loading}

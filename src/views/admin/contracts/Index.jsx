@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Alert, Box, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import {
+    Alert,
+    Box,
+    Button,
+    Chip,
+    Paper,
+    Stack,
+    ToggleButton,
+    ToggleButtonGroup,
+    Typography,
+    useTheme,
+} from '@mui/material';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AddIcon from '@mui/icons-material/Add';
 import fetch from '@/utils/fetch';
 import { formatPrice, currencyLabel } from '@/utils/money.js';
 import { can } from '@/auth/can';
@@ -15,24 +30,166 @@ import DataTable, { StatusChip } from '@/components/workspace/DataTable.jsx';
 import { useColumnVisibility } from '@/components/workspace/useColumnVisibility.js';
 import { usePagedList } from '@/components/workspace/usePagedList.js';
 import ContractStatusDialog from './ContractStatusDialog.jsx';
-import { contractAmount, contractError, contractNumber, contractParties, contractPeriod, contractWhen } from './contractForm.js';
+import {
+    contractAmount,
+    contractNumber,
+    contractParties,
+    contractPeriod,
+    contractWhen,
+} from './contractForm.js';
+import { contractError } from './contractError.js';
+import {
+    getContractColor,
+    getContractMetricCardStyle,
+    getContractStatusBadge,
+} from './contractColors.js';
 
 const TYPES = ['sale', 'rent'];
 const DEAL_STATUSES = ['draft', 'open', 'completed', 'cancelled'];
 const TERMS = ['expiring', 'expired'];
 const OPTIONAL_COLUMNS = ['type', 'property', 'branch', 'parties', 'period', 'user', 'date'];
 
-function SummaryCard({ label, value }) {
+/**
+ * Modern ERP Interactive Metric Card with Theme Adaptivity & High Contrast.
+ */
+function KpiMetricCard({ type, label, value, subtitle, isSelected, onClick }) {
+    const theme = useTheme();
+    const isDark = theme.palette.mode === 'dark';
+    const colors = getContractColor(type, isDark);
+    const cardSx = getContractMetricCardStyle(type, isDark, isSelected);
+
     return (
-        <Paper variant="outlined" sx={{ px: 2, py: 1.5, flex: '1 1 140px', minWidth: 140 }}>
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
-            <Typography variant="h6" fontWeight={700}>{value}</Typography>
+        <Paper
+            variant="outlined"
+            onClick={onClick}
+            sx={cardSx}
+        >
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                <Typography variant="caption" sx={{ color: colors.iconColor, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {label}
+                </Typography>
+                {isSelected && (
+                    <Chip
+                        size="small"
+                        label="●"
+                        sx={{
+                            height: 16,
+                            fontSize: '0.65rem',
+                            bgcolor: colors.bgColor,
+                            color: colors.iconColor,
+                            fontWeight: 800,
+                        }}
+                    />
+                )}
+            </Stack>
+            <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+                {value}
+            </Typography>
+            {subtitle && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                    {subtitle}
+                </Typography>
+            )}
         </Paper>
     );
 }
 
+/**
+ * Clickable header that triggers sort toggle (ASC -> DESC -> ASC).
+ */
+function SortHeader({ label, sortKey, currentSort, onSort }) {
+    const isCurrent = currentSort === sortKey || currentSort === `-${sortKey}`;
+    const isDesc = currentSort === `-${sortKey}`;
+    return (
+        <Stack
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            onClick={(e) => {
+                e.stopPropagation();
+                onSort(isCurrent && !isDesc ? `-${sortKey}` : sortKey);
+            }}
+            sx={{
+                cursor: 'pointer',
+                userSelect: 'none',
+                display: 'inline-flex',
+                color: isCurrent ? 'primary.main' : 'inherit',
+                fontWeight: isCurrent ? 700 : 600,
+                '&:hover': { color: 'primary.main' },
+            }}
+        >
+            <span>{label}</span>
+            {isCurrent && (
+                <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                    {isDesc ? '↓' : '↑'}
+                </Typography>
+            )}
+        </Stack>
+    );
+}
+
+/**
+ * Unicode UTF-8 BOM CSV Export Preserving Arabic/Kurdish in Excel.
+ */
+function exportContractsCsv(items, t) {
+    if (!items || !items.length) return;
+    const headers = [
+        `"${t('contracts.number')}"`,
+        `"${t('contracts.deal')}"`,
+        `"${t('contracts.type')}"`,
+        `"${t('contracts.status')}"`,
+        `"${t('contracts.property')}"`,
+        `"${t('contracts.branch')}"`,
+        `"${t('contracts.parties')}"`,
+        `"${t('contracts.amount')}"`,
+        `"${t('contracts.currency') || 'Currency'}"`,
+        `"${t('contracts.period')}"`,
+        `"${t('contracts.issued_by')}"`,
+        `"${t('contracts.date')}"`,
+    ];
+
+    const rows = items.map((row) => {
+        const amount = row.transaction_type === 'rent' ? row.rent_amount : row.purchase_price;
+        const propTitle = [row.property_reference, row.property_title].filter(Boolean).join(' · ');
+        const partiesStr = (row.parties || [])
+            .map((p) => `${t(`transactions.roles.${p.role}`, { defaultValue: p.role })}: ${p.name}`)
+            .join('; ');
+        const period = row.transaction_type === 'rent'
+            ? `${contractWhen(row.period_start)} – ${contractWhen(row.period_end)}`
+            : '';
+
+        return [
+            `"${contractNumber(row.id)}"`,
+            `"${(row.reference_number || '').replace(/"/g, '""')}"`,
+            `"${t(`contracts.${row.transaction_type}`, { defaultValue: row.transaction_type })}"`,
+            `"${t(`contracts.${row.status}`, { defaultValue: row.status })}"`,
+            `"${propTitle.replace(/"/g, '""')}"`,
+            `"${(row.branch_name || '').replace(/"/g, '""')}"`,
+            `"${partiesStr.replace(/"/g, '""')}"`,
+            `"${amount != null && amount !== '' ? amount : ''}"`,
+            `"${row.currency_code || ''}"`,
+            `"${period.replace(/"/g, '""')}"`,
+            `"${(row.issued_by || '').replace(/"/g, '""')}"`,
+            `"${contractWhen(row.created_at)}"`,
+        ];
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `contracts-registry-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
 export default function Index() {
     const { t } = useTranslation();
+    const theme = useTheme();
+    const isDark = theme.palette.mode === 'dark';
     const navigate = useNavigate();
     const [params] = useSearchParams();
     const user = useAuthStore((state) => state.user);
@@ -50,26 +207,32 @@ export default function Index() {
             .then((res) => {
                 if (active) setOffices(res.data?.data?.branches || []);
             })
-            .catch(() => {});
+            .catch(() => { });
         return () => { active = false; };
     }, []);
 
     const fetchPage = useCallback(async ({ page, q, filters }) => {
-        const params = { page, limit: 25, status: filters.state === 'archived' ? 'archived' : 'active' };
-        if (q) params.q = q;
-        if (filters.type) params.type = filters.type;
-        if (filters.deal) params.deal = filters.deal;
-        if (filters.term) params.term = filters.term;
-        if (filters.branch) params.branch = filters.branch;
-        if (filters.from) params.from = filters.from;
-        if (filters.to) params.to = filters.to;
-        const res = await fetch.get('documents/contracts', { params });
+        const queryParams = {
+            page,
+            limit: 25,
+            status: filters.state === 'archived' ? 'archived' : 'active',
+        };
+        if (q) queryParams.q = q;
+        if (filters.sort) queryParams.sort = filters.sort;
+        if (filters.type) queryParams.type = filters.type;
+        if (filters.deal) queryParams.deal = filters.deal;
+        if (filters.term) queryParams.term = filters.term;
+        if (filters.branch) queryParams.branch = filters.branch;
+        if (filters.from) queryParams.from = filters.from;
+        if (filters.to) queryParams.to = filters.to;
+        const res = await fetch.get('documents/contracts', { params: queryParams });
         return res.data?.data || {};
     }, []);
 
     const list = usePagedList(fetchPage, {
         q: params.get('q') || '',
         filters: {
+            sort: params.get('sort') || '-created_at',
             type: params.get('type') || '',
             deal: params.get('deal') || '',
             term: params.get('term') || '',
@@ -85,6 +248,7 @@ export default function Index() {
         applyQuery({
             q: params.get('q') || '',
             filters: {
+                sort: params.get('sort') || '-created_at',
                 type: params.get('type') || '',
                 deal: params.get('deal') || '',
                 term: params.get('term') || '',
@@ -100,6 +264,10 @@ export default function Index() {
     const archived = list.filters.state === 'archived';
     const columns = useColumnVisibility('contracts.table.columns', OPTIONAL_COLUMNS);
     const hidden = new Set(columns.hidden);
+
+    const handleSort = (sortKey) => {
+        list.setFilter('sort', sortKey);
+    };
 
     const changeStatus = async () => {
         if (!pending) return;
@@ -124,16 +292,17 @@ export default function Index() {
     };
 
     const openReport = () => {
-        const params = new URLSearchParams();
-        if (list.query) params.set('q', list.query);
-        if (list.filters.type) params.set('type', list.filters.type);
-        params.set('status', archived ? 'archived' : 'active');
-        if (list.filters.deal) params.set('deal', list.filters.deal);
-        if (list.filters.term) params.set('term', list.filters.term);
-        if (list.filters.branch) params.set('branch', list.filters.branch);
-        if (list.filters.from) params.set('from', list.filters.from);
-        if (list.filters.to) params.set('to', list.filters.to);
-        const query = params.toString();
+        const urlParams = new URLSearchParams();
+        if (list.query) urlParams.set('q', list.query);
+        if (list.filters.sort) urlParams.set('sort', list.filters.sort);
+        if (list.filters.type) urlParams.set('type', list.filters.type);
+        urlParams.set('status', archived ? 'archived' : 'active');
+        if (list.filters.deal) urlParams.set('deal', list.filters.deal);
+        if (list.filters.term) urlParams.set('term', list.filters.term);
+        if (list.filters.branch) urlParams.set('branch', list.filters.branch);
+        if (list.filters.from) urlParams.set('from', list.filters.from);
+        if (list.filters.to) urlParams.set('to', list.filters.to);
+        const query = urlParams.toString();
         navigate(query ? `/admin/contracts/report?${query}` : '/admin/contracts/report');
     };
 
@@ -151,22 +320,54 @@ export default function Index() {
         { key: 'actions', label: t('workspace_ui.actions'), locked: true },
     ];
 
+    const currentSort = list.filters.sort || '-created_at';
+
     const tableColumns = [
         {
             key: 'number',
             locked: true,
-            header: t('contracts.number'),
-            render: (row) => (
-                <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{contractNumber(row.id)}</Typography>
-                    <StatusChip status={row.status} label={t(`contracts.${row.status}`)} />
-                </Stack>
+            header: (
+                <SortHeader
+                    label={t('contracts.number')}
+                    sortKey="contract_number"
+                    currentSort={currentSort}
+                    onSort={handleSort}
+                />
             ),
+            render: (row) => {
+                const badge = getContractStatusBadge(row.status, isDark);
+                return (
+                    <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                            {contractNumber(row.id)}
+                        </Typography>
+                        <Chip
+                            size="small"
+                            label={t(`contracts.${row.status}`, { defaultValue: row.status })}
+                            sx={{
+                                height: 20,
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                bgcolor: badge.bg,
+                                color: badge.color,
+                                border: `1px solid ${badge.border}`,
+                            }}
+                        />
+                    </Stack>
+                );
+            },
         },
         {
             key: 'deal',
             locked: true,
-            header: t('contracts.deal'),
+            header: (
+                <SortHeader
+                    label={t('contracts.deal')}
+                    sortKey="deal_reference"
+                    currentSort={currentSort}
+                    onSort={handleSort}
+                />
+            ),
             render: (row) => (
                 <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
                     <Typography fontWeight={600}>{row.reference_number || '—'}</Typography>
@@ -178,20 +379,57 @@ export default function Index() {
         },
         {
             key: 'type',
-            header: t('contracts.type'),
+            header: (
+                <SortHeader
+                    label={t('contracts.type')}
+                    sortKey="deal_type"
+                    currentSort={currentSort}
+                    onSort={handleSort}
+                />
+            ),
             render: (row) => <StatusChip status={row.transaction_type} label={t(`contracts.${row.transaction_type}`)} />,
         },
         {
             key: 'property',
-            header: t('contracts.property'),
+            header: (
+                <SortHeader
+                    label={t('contracts.property')}
+                    sortKey="property"
+                    currentSort={currentSort}
+                    onSort={handleSort}
+                />
+            ),
             render: (row) => [row.property_reference, row.property_title].filter(Boolean).join(' · ') || '—',
         },
         { key: 'branch', header: t('contracts.branch'), render: (row) => row.branch_name || '—' },
         { key: 'parties', header: t('contracts.parties'), render: (row) => contractParties(row, t) },
-        { key: 'amount', locked: true, header: t('contracts.amount'), render: (row) => contractAmount(row) },
+        {
+            key: 'amount',
+            locked: true,
+            header: (
+                <SortHeader
+                    label={t('contracts.amount')}
+                    sortKey="amount"
+                    currentSort={currentSort}
+                    onSort={handleSort}
+                />
+            ),
+            render: (row) => (
+                <Typography sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    {contractAmount(row)}
+                </Typography>
+            ),
+        },
         {
             key: 'period',
-            header: t('contracts.period'),
+            header: (
+                <SortHeader
+                    label={t('contracts.period')}
+                    sortKey="period_end"
+                    currentSort={currentSort}
+                    onSort={handleSort}
+                />
+            ),
             render: (row) => (
                 <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
                     <span>{contractPeriod(row)}</span>
@@ -202,7 +440,18 @@ export default function Index() {
             ),
         },
         { key: 'user', header: t('contracts.issued_by'), render: (row) => row.issued_by || '—' },
-        { key: 'date', header: t('contracts.date'), render: (row) => contractWhen(row.created_at) },
+        {
+            key: 'date',
+            header: (
+                <SortHeader
+                    label={t('contracts.date')}
+                    sortKey="created_at"
+                    currentSort={currentSort}
+                    onSort={handleSort}
+                />
+            ),
+            render: (row) => contractWhen(row.created_at),
+        },
         {
             key: 'actions',
             locked: true,
@@ -216,7 +465,9 @@ export default function Index() {
             render: (row) => (
                 <Stack direction="row" spacing={0.5} onClick={(event) => event.stopPropagation()}>
                     <ActionIconButton action="view" onClick={() => navigate(`/admin/contracts/${row.id}/show`)} />
-                    {!archived && row.status !== 'signed' && canIssue && <ActionIconButton action="edit" onClick={() => navigate(`/admin/contracts/${row.id}/edit`)} />}
+                    {!archived && row.status !== 'signed' && canIssue && (
+                        <ActionIconButton action="edit" onClick={() => navigate(`/admin/contracts/${row.id}/edit`)} />
+                    )}
                     {canDownload && (
                         <ActionIconButton
                             action="print"
@@ -239,40 +490,130 @@ export default function Index() {
     const totals = summary.totals || [];
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={t('contracts.title')}
                 description={t('contracts.hint')}
                 action={(
                     <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<FileDownloadIcon />}
+                            onClick={() => exportContractsCsv(list.items, t)}
+                            disabled={list.loading || list.items.length === 0}
+                        >
+                            {t('contracts.export_csv') || 'Export CSV'}
+                        </Button>
                         <Can permission="document:generate">
-                            <Button onClick={() => navigate('/admin/contracts/templates')}>{t('contracts.templates')}</Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<DescriptionIcon />}
+                                onClick={() => navigate('/admin/contracts/templates')}
+                            >
+                                {t('contracts.templates')}
+                            </Button>
                         </Can>
-                        <Button onClick={openReport}>{t('contracts.report')}</Button>
+                        <Button
+                            variant="outlined"
+                            startIcon={<AssessmentIcon />}
+                            onClick={openReport}
+                        >
+                            {t('contracts.report')}
+                        </Button>
                         <Can permission="document:generate">
-                            <Button variant="contained" onClick={() => navigate('/admin/contracts/create')}>{t('contracts.add_new')}</Button>
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={() => navigate('/admin/contracts/create')}
+                            >
+                                {t('contracts.add_new')}
+                            </Button>
                         </Can>
                     </Stack>
                 )}
             />
             {list.error && <Alert severity="error" sx={{ mb: 2 }}>{list.error}</Alert>}
             {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
-            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                <SummaryCard label={t('contracts.summary_contracts')} value={summary.contracts} />
-                <SummaryCard label={t('contracts.summary_sales')} value={summary.sales} />
-                <SummaryCard label={t('contracts.summary_rents')} value={summary.rents} />
-                <SummaryCard label={t('contracts.expiring')} value={summary.expiring || 0} />
-                {totals.map((row) => {
-                    const currency = currencyLabel(row.symbol || row.currency_code);
-                    return (
-                        <SummaryCard
-                            key={row.currency_code || currency || 'value'}
-                            label={currency ? `${t('contracts.value')} · ${currency}` : t('contracts.value')}
-                            value={formatPrice(row.total)}
-                        />
-                    );
-                })}
+
+            {/* 5 Modern Theme-Adaptive KPI Metric Cards */}
+            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap', width: '100%' }}>
+                <KpiMetricCard
+                    type="total"
+                    label={t('contracts.summary_contracts')}
+                    value={summary.contracts}
+                    subtitle={t('contracts.all_records') || 'All records in register'}
+                    isSelected={!list.filters.type && !list.filters.term && list.filters.state !== 'archived'}
+                    onClick={() => {
+                        list.setFilter('type', '');
+                        list.setFilter('term', '');
+                        list.setFilter('state', '');
+                    }}
+                />
+                <KpiMetricCard
+                    type="active"
+                    label={t('contracts.active')}
+                    value={summary.active}
+                    subtitle={t('contracts.active_signed') || 'Enforceable & signed'}
+                    isSelected={list.filters.state !== 'archived' && !list.filters.type && !list.filters.term}
+                    onClick={() => {
+                        list.setFilter('state', '');
+                        list.setFilter('type', '');
+                        list.setFilter('term', '');
+                    }}
+                />
+                <KpiMetricCard
+                    type="expiring"
+                    label={t('contracts.expiring')}
+                    value={summary.expiring || 0}
+                    subtitle={t('contracts.within_30_days') || 'Expires within 30 days'}
+                    isSelected={list.filters.term === 'expiring'}
+                    onClick={() => {
+                        list.setFilter('term', list.filters.term === 'expiring' ? '' : 'expiring');
+                    }}
+                />
+                <KpiMetricCard
+                    type="rent"
+                    label={t('contracts.summary_rents')}
+                    value={summary.rents || 0}
+                    subtitle={t('contracts.lease_agreements') || 'Rental agreements'}
+                    isSelected={list.filters.type === 'rent'}
+                    onClick={() => {
+                        list.setFilter('type', list.filters.type === 'rent' ? '' : 'rent');
+                    }}
+                />
+                <KpiMetricCard
+                    type="sale"
+                    label={t('contracts.summary_sales')}
+                    value={summary.sales || 0}
+                    subtitle={t('contracts.sales_contracts') || 'Ownership transfers'}
+                    isSelected={list.filters.type === 'sale'}
+                    onClick={() => {
+                        list.setFilter('type', list.filters.type === 'sale' ? '' : 'sale');
+                    }}
+                />
             </Stack>
+
+            {/* Currency Totals Strip */}
+            {totals.length > 0 && (
+                <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }} alignItems="center">
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mr: 0.5 }}>
+                        {t('contracts.value_breakdown') || 'Registry Total:'}
+                    </Typography>
+                    {totals.map((row) => {
+                        const currency = currencyLabel(row.symbol || row.currency_code);
+                        return (
+                            <Chip
+                                key={row.currency_code || currency || 'value'}
+                                size="small"
+                                variant="outlined"
+                                label={`${formatPrice(row.total)} ${currency || ''}`}
+                                sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
+                            />
+                        );
+                    })}
+                </Stack>
+            )}
+
             <ListToolbar
                 search={list.query}
                 onSearch={list.setSearch}
