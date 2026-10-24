@@ -20,6 +20,7 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
+import Swal from 'sweetalert2';
 import fetch from '@/utils/fetch';
 import Can from '@/components/auth/Can.jsx';
 import PageHeader from '@/components/workspace/PageHeader.jsx';
@@ -27,6 +28,7 @@ import RecordDialog from '@/components/workspace/RecordDialog.jsx';
 import { StatusChip } from '@/components/workspace/DataTable.jsx';
 import { formatPrice, currencyLabel } from '@/utils/money.js';
 import { dealAmount, dealPeriod, dealWhen } from './transactionForm.js';
+import { transactionError } from './transactionError.js';
 
 const ACTIVITY_TYPES = ['note', 'call', 'viewing', 'follow_up'];
 
@@ -129,6 +131,41 @@ export default function Show() {
                 setError(t('transactions.stale'));
             else
                 setError(message || t('login.error'));
+        }
+    };
+
+    const handleDeleteDraft = async () => {
+        const result = await Swal.fire({
+            title: t('transactions.delete_confirm_title', { defaultValue: 'Delete Transaction?' }),
+            text: t('transactions.delete_confirm_text', {
+                defaultValue: `Are you sure you want to delete transaction "${deal.reference_number}"? This action cannot be undone.`,
+                ref: deal.reference_number,
+            }),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: t('workspace_ui.confirm_delete', { defaultValue: 'Yes, delete it' }),
+            cancelButtonText: t('common.cancel', { defaultValue: 'Cancel' }),
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            await fetch.delete(`transactions/${deal.id}`);
+            await Swal.fire({
+                icon: 'success',
+                title: t('transactions.deleted_success', { defaultValue: 'Transaction deleted' }),
+                timer: 1800,
+                showConfirmButton: false,
+            });
+            navigate('/admin/transactions/index');
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: t('common.error', { defaultValue: 'Cannot delete transaction' }),
+                text: transactionError(err, t),
+            });
         }
     };
 
@@ -462,6 +499,13 @@ export default function Show() {
                             {deal.status === 'draft' && (
                                 <Can permission={['transaction:create', 'financial:record']}>
                                     <Button variant="contained" onClick={() => setStatus('open')}>{t('transactions.open')}</Button>
+                                </Can>
+                            )}
+                            {deal.status === 'draft' && (
+                                <Can permission="transaction:create">
+                                    <Button variant="outlined" color="error" onClick={handleDeleteDraft}>
+                                        {t('transactions.delete', { defaultValue: 'Delete Draft' })}
+                                    </Button>
                                 </Can>
                             )}
                             {deal.status === 'open' && (

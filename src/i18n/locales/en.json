@@ -997,7 +997,22 @@
       "rent": "Rent",
       "deposit": "Deposit",
       "other": "Other"
-    }
+    },
+    "export_csv": "Export CSV",
+    "delete": "Delete Draft",
+    "delete_confirm_title": "Delete Transaction?",
+    "delete_confirm_text": "Are you sure you want to delete transaction \"{{ref}}\"? This action cannot be undone.",
+    "deleted_success": "Transaction deleted successfully",
+    "in_use": "Cannot delete deal with active business records",
+    "linked_active_contracts": "active contracts",
+    "linked_posted_entries": "posted financial entries",
+    "linked_earned_commissions": "earned commissions",
+    "is_completed_deal": "completed deal",
+    "cancel_reason_title": "Cancellation Reason",
+    "cancel_reason_label": "Please provide a reason for cancelling this deal:",
+    "cancel_reason_placeholder": "Client changed mind / terms not met...",
+    "cancel_reason_required": "A cancellation reason is required",
+    "cancel_reason_too_long": "Reason cannot exceed 255 characters"
   },
   "contracts": {
     "title": "Contracts",

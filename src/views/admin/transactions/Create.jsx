@@ -111,7 +111,15 @@ export default function Create() {
     }
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box
+            sx={{
+                p: { xs: 2, md: 3 },
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                minHeight: '100%',
+            }}
+        >
             <PageHeader
                 title={t('transactions.create')}
                 description={t('transactions.create_hint')}

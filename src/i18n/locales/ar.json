@@ -998,7 +998,22 @@
       "rent": "إيجار",
       "deposit": "تأمين",
       "other": "أخرى"
-    }
+    },
+    "export_csv": "تصدير CSV",
+    "delete": "حذف المسودة",
+    "delete_confirm_title": "حذف المعاملة؟",
+    "delete_confirm_text": "هل أنت متأكد من حذف المعاملة \"{{ref}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+    "deleted_success": "تم حذف المعاملة بنجاح",
+    "in_use": "لا يمكن حذف معاملة مرتبطة بسجلات نشطة",
+    "linked_active_contracts": "عقود نشطة",
+    "linked_posted_entries": "قيود مالية مُرحّلة",
+    "linked_earned_commissions": "عمولات مستحقة",
+    "is_completed_deal": "صفقة مكتملة",
+    "cancel_reason_title": "سبب الإلغاء",
+    "cancel_reason_label": "يرجى ذكر سبب إلغاء هذه الصفقة:",
+    "cancel_reason_placeholder": "تراجع العميل / عدم استيفاء الشروط...",
+    "cancel_reason_required": "سبب الإلغاء مطلوب",
+    "cancel_reason_too_long": "لا يمكن أن يتجاوز السبب 255 حرفاً"
   },
   "contracts": {
     "title": "العقود",

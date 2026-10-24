@@ -2,7 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Paper,
+    Stack,
+    Typography,
+    alpha,
+    useTheme,
+} from '@mui/material';
+import {
+    HandshakeOutlined as DealsIcon,
+    MonetizationOnOutlined as SaleIcon,
+    KeyOutlined as RentIcon,
+    PendingActionsOutlined as OpenIcon,
+    AlarmOutlined as ExpiringIcon,
+    FileDownloadOutlined as ExportIcon,
+} from '@mui/icons-material';
 import fetch from '@/utils/fetch';
 import PageHeader from '@/components/workspace/PageHeader.jsx';
 import ListToolbar from '@/components/workspace/ListToolbar.jsx';
@@ -13,18 +32,128 @@ import useIsRTL from '@/hooks/useIsRTL';
 import { useAuthStore } from '@/store/authStore';
 import { loadPdfCompany } from '@/utils/pdfCompany';
 import { dealAmount, dealParties, dealPeriod, dealWhen } from './transactionForm.js';
+import { getTransactionPalette } from './transactionColors.js';
 
 const TYPES = ['sale', 'rent'];
 const DESKS = ['working', 'closed'];
 const TERMS = ['expiring', 'expired'];
 
-function SummaryCard({ label, value }) {
+function ReportMetricCard({
+    paletteKey,
+    label,
+    value,
+    icon: IconComponent,
+}) {
+    const theme = useTheme();
+    const colors = getTransactionPalette(theme, paletteKey);
+
     return (
-        <Paper variant="outlined" sx={{ px: 2, py: 1.5, flex: '1 1 140px', minWidth: 140 }}>
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
-            <Typography variant="h6" fontWeight={700}>{value}</Typography>
-        </Paper>
+        <Card
+            variant="outlined"
+            sx={{
+                flex: '1 1 160px',
+                minWidth: 150,
+                borderRadius: 2,
+                borderWidth: 1,
+                borderColor: colors.borderColor,
+                backgroundColor: colors.bgColor,
+                boxShadow: 'none',
+            }}
+        >
+            <CardContent sx={{ p: '14px 16px !important' }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                                color: theme.palette.mode === 'dark' ? 'text.secondary' : 'text.primary',
+                                display: 'block',
+                                noWrap: true,
+                            }}
+                        >
+                            {label}
+                        </Typography>
+                        <Typography
+                            variant="h5"
+                            sx={{
+                                fontWeight: 800,
+                                mt: 0.25,
+                                color: colors.iconColor,
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            {value}
+                        </Typography>
+                    </Box>
+                    <Box
+                        sx={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: alpha(colors.iconColor, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                            color: colors.iconColor,
+                            flexShrink: 0,
+                        }}
+                    >
+                        <IconComponent sx={{ fontSize: 22 }} />
+                    </Box>
+                </Stack>
+            </CardContent>
+        </Card>
     );
+}
+
+function exportReportCsv(items, t) {
+    if (!items || items.length === 0) return;
+    const headers = [
+        t('transactions.reference', { defaultValue: 'Reference' }),
+        t('transactions.property', { defaultValue: 'Property' }),
+        t('transactions.type', { defaultValue: 'Type' }),
+        t('workspace_ui.status', { defaultValue: 'Status' }),
+        t('transactions.value', { defaultValue: 'Amount' }),
+        t('transactions.currency', { defaultValue: 'Currency' }),
+        t('transactions.parties', { defaultValue: 'Parties' }),
+        t('transactions.period_start', { defaultValue: 'Period Start' }),
+        t('transactions.period_end', { defaultValue: 'Period End' }),
+        t('transactions.branch', { defaultValue: 'Branch' }),
+        t('transactions.agent', { defaultValue: 'Agent' }),
+        t('transactions.date', { defaultValue: 'Created' }),
+    ];
+
+    const rows = items.map((deal) => {
+        const partiesText = (deal.parties || []).map((p) => `${p.name || ''} (${p.role || ''})`).join('; ');
+        const amount = deal.transaction_type === 'sale' ? deal.purchase_price : deal.rent_amount;
+        return [
+            `"${(deal.reference_number || '').replace(/"/g, '""')}"`,
+            `"${([deal.property_reference, deal.property_title].filter(Boolean).join(' - ')).replace(/"/g, '""')}"`,
+            `"${t(`transactions.types.${deal.transaction_type}`, { defaultValue: deal.transaction_type })}"`,
+            `"${t(`transactions.statuses.${deal.status}`, { defaultValue: deal.status })}"`,
+            `"${amount != null && amount !== '' ? amount : ''}"`,
+            `"${deal.currency_code || ''}"`,
+            `"${partiesText.replace(/"/g, '""')}"`,
+            `"${deal.period_start || ''}"`,
+            `"${deal.period_end || ''}"`,
+            `"${(deal.branch_name || '').replace(/"/g, '""')}"`,
+            `"${(deal.agent_name || '').replace(/"/g, '""')}"`,
+            `"${dealWhen(deal.created_at)}"`,
+        ];
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `transactions-report-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 export default function Report() {
@@ -147,23 +276,39 @@ export default function Report() {
     );
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box
+            sx={{
+                p: { xs: 2, md: 3 },
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                minHeight: '100%',
+            }}
+        >
             <PageHeader
                 title={t('transactions.report_title')}
                 description={t('transactions.report_hint')}
                 action={(
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<ExportIcon />}
+                            onClick={() => exportReportCsv(items, t)}
+                            disabled={!items || items.length === 0}
+                        >
+                            {t('transactions.export_csv', { defaultValue: 'Export CSV' })}
+                        </Button>
                         <Button onClick={() => navigate('/admin/transactions/index')}>{t('transactions.back')}</Button>
                     </Stack>
                 )}
             />
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                <SummaryCard label={t('transactions.summary_deals')} value={summary.deals} />
-                <SummaryCard label={t('transactions.summary_sales')} value={summary.sales} />
-                <SummaryCard label={t('transactions.summary_rents')} value={summary.rents} />
-                <SummaryCard label={t('transactions.statuses.open')} value={summary.open} />
-                <SummaryCard label={t('transactions.expiring')} value={summary.expiring || 0} />
+                <ReportMetricCard paletteKey="total" label={t('transactions.summary_deals')} value={summary.deals} icon={DealsIcon} />
+                <ReportMetricCard paletteKey="sale" label={t('transactions.summary_sales')} value={summary.sales} icon={SaleIcon} />
+                <ReportMetricCard paletteKey="rent" label={t('transactions.summary_rents')} value={summary.rents} icon={RentIcon} />
+                <ReportMetricCard paletteKey="open" label={t('transactions.statuses.open')} value={summary.open} icon={OpenIcon} />
+                <ReportMetricCard paletteKey="expiring" label={t('transactions.expiring')} value={summary.expiring || 0} icon={ExpiringIcon} />
             </Stack>
             <Box sx={{ mb: 2 }}>
                 <ListToolbar

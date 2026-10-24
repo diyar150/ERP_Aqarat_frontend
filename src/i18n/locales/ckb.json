@@ -1079,7 +1079,22 @@
       "rent": "کرێ",
       "deposit": "بارمتە",
       "other": "هیتر"
-    }
+    },
+    "export_csv": "هەناردەکردنی CSV",
+    "delete": "سڕینەوەی ڕەشنووس",
+    "delete_confirm_title": "سڕینەوەی مامەڵە؟",
+    "delete_confirm_text": "ئایا دڵنیایت لە سڕینەوەی مامەڵەی \"{{ref}}\"؟ ئەم کردەوەیە ناگەڕێندرێتەوە.",
+    "deleted_success": "مامەڵەکە بە سەرکەوتوویی سڕایەوە",
+    "in_use": "ناتوانرێت مامەڵە بسڕدرێتەوە بەهۆی بوونی تۆماری پەیوەندیدار",
+    "linked_active_contracts": "گرێبەستی چالاک",
+    "linked_posted_entries": "تۆماری دارایی تۆمارکراو",
+    "linked_earned_commissions": "شایستەی دەڵاڵی",
+    "is_completed_deal": "مامەڵەی تەواوکراو",
+    "cancel_reason_title": "هۆکاری هەڵوەشاندنەوە",
+    "cancel_reason_label": "تکایە هۆکاری هەڵوەشاندنەوەی ئەم مامەڵەیە دیاری بکە:",
+    "cancel_reason_placeholder": "کڕیار پەشیمان بووەوە / مەرجەکان جێبەجێ نەکران...",
+    "cancel_reason_required": "هۆکاری هەڵوەشاندنەوە پێویستە",
+    "cancel_reason_too_long": "هۆکار نابێت لە ٢٥٥ پیت زیاتر بێت"
   },
   "contracts": {
     "title": "گرێبەستەکان",
