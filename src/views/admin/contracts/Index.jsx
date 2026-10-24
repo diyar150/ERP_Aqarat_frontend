@@ -17,6 +17,11 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AddIcon from '@mui/icons-material/Add';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
+import MonetizationOnOutlinedIcon from '@mui/icons-material/MonetizationOnOutlined';
 import fetch from '@/utils/fetch';
 import { formatPrice, currencyLabel } from '@/utils/money.js';
 import { can } from '@/auth/can';
@@ -41,6 +46,7 @@ import { contractError } from './contractError.js';
 import {
     getContractColor,
     getContractMetricCardStyle,
+    getContractIconBoxStyle,
     getContractStatusBadge,
 } from './contractColors.js';
 
@@ -51,12 +57,13 @@ const OPTIONAL_COLUMNS = ['type', 'property', 'branch', 'parties', 'period', 'us
 
 /**
  * Modern ERP Interactive Metric Card with Theme Adaptivity & High Contrast.
+ * Uses neutral background compatible with light and dark mode, with a colored icon badge.
  */
-function KpiMetricCard({ type, label, value, subtitle, isSelected, onClick }) {
+function KpiMetricCard({ icon: Icon, type, label, value, subtitle, isSelected, onClick }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === 'dark';
-    const colors = getContractColor(type, isDark);
     const cardSx = getContractMetricCardStyle(type, isDark, isSelected);
+    const iconSx = getContractIconBoxStyle(type, isDark);
 
     return (
         <Paper
@@ -64,32 +71,35 @@ function KpiMetricCard({ type, label, value, subtitle, isSelected, onClick }) {
             onClick={onClick}
             sx={cardSx}
         >
-            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                <Typography variant="caption" sx={{ color: colors.iconColor, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <Box sx={iconSx}>
+                <Icon fontSize="medium" />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    noWrap
+                    sx={{ display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                >
                     {label}
                 </Typography>
-                {isSelected && (
-                    <Chip
-                        size="small"
-                        label="●"
-                        sx={{
-                            height: 16,
-                            fontSize: '0.65rem',
-                            bgcolor: colors.bgColor,
-                            color: colors.iconColor,
-                            fontWeight: 800,
-                        }}
-                    />
-                )}
-            </Stack>
-            <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
-                {value}
-            </Typography>
-            {subtitle && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                    {subtitle}
+                <Typography
+                    variant="h5"
+                    sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, mt: 0.25 }}
+                >
+                    {value ?? 0}
                 </Typography>
-            )}
+                {subtitle && (
+                    <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                        sx={{ display: 'block', mt: 0.25, fontSize: '0.72rem' }}
+                    >
+                        {subtitle}
+                    </Typography>
+                )}
+            </Box>
         </Paper>
     );
 }
@@ -538,6 +548,7 @@ export default function Index() {
             {/* 5 Modern Theme-Adaptive KPI Metric Cards */}
             <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap', width: '100%' }}>
                 <KpiMetricCard
+                    icon={AssignmentOutlinedIcon}
                     type="total"
                     label={t('contracts.summary_contracts')}
                     value={summary.contracts}
@@ -550,6 +561,7 @@ export default function Index() {
                     }}
                 />
                 <KpiMetricCard
+                    icon={CheckCircleOutlinedIcon}
                     type="active"
                     label={t('contracts.active')}
                     value={summary.active}
@@ -562,6 +574,7 @@ export default function Index() {
                     }}
                 />
                 <KpiMetricCard
+                    icon={TimerOutlinedIcon}
                     type="expiring"
                     label={t('contracts.expiring')}
                     value={summary.expiring || 0}
@@ -572,6 +585,7 @@ export default function Index() {
                     }}
                 />
                 <KpiMetricCard
+                    icon={KeyOutlinedIcon}
                     type="rent"
                     label={t('contracts.summary_rents')}
                     value={summary.rents || 0}
@@ -582,6 +596,7 @@ export default function Index() {
                     }}
                 />
                 <KpiMetricCard
+                    icon={MonetizationOnOutlinedIcon}
                     type="sale"
                     label={t('contracts.summary_sales')}
                     value={summary.sales || 0}

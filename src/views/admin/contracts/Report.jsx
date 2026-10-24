@@ -14,6 +14,12 @@ import {
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
+import MonetizationOnOutlinedIcon from '@mui/icons-material/MonetizationOnOutlined';
+import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import fetch from '@/utils/fetch';
 import PageHeader from '@/components/workspace/PageHeader.jsx';
 import ListToolbar from '@/components/workspace/ListToolbar.jsx';
@@ -30,31 +36,48 @@ import {
     contractWhen,
 } from './contractForm.js';
 import { contractError } from './contractError.js';
-import { getContractColor, getContractMetricCardStyle } from './contractColors.js';
+import {
+    getContractColor,
+    getContractMetricCardStyle,
+    getContractIconBoxStyle,
+} from './contractColors.js';
 
 const TYPES = ['sale', 'rent'];
 const STATUSES = ['active', 'archived'];
 const DEAL_STATUSES = ['draft', 'open', 'completed', 'cancelled'];
 const TERMS = ['expiring', 'expired'];
 
-function KpiMetricCard({ type, label, value, isSelected, onClick }) {
+function KpiMetricCard({ icon: Icon, type, label, value, isSelected, onClick }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === 'dark';
-    const colors = getContractColor(type, isDark);
     const cardSx = getContractMetricCardStyle(type, isDark, isSelected);
+    const iconSx = getContractIconBoxStyle(type, isDark);
 
     return (
         <Paper
             variant="outlined"
             onClick={onClick}
-            sx={{ ...cardSx, minWidth: 150 }}
+            sx={{ ...cardSx, minWidth: 160 }}
         >
-            <Typography variant="caption" sx={{ color: colors.iconColor, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {label}
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
-                {value}
-            </Typography>
+            <Box sx={iconSx}>
+                <Icon fontSize="medium" />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    noWrap
+                    sx={{ display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                >
+                    {label}
+                </Typography>
+                <Typography
+                    variant="h5"
+                    sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, mt: 0.25 }}
+                >
+                    {value ?? 0}
+                </Typography>
+            </Box>
         </Paper>
     );
 }
@@ -248,6 +271,7 @@ export default function Report() {
             {/* KPI Cards Strip */}
             <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap', width: '100%' }}>
                 <KpiMetricCard
+                    icon={AssignmentOutlinedIcon}
                     type="total"
                     label={t('contracts.summary_contracts')}
                     value={summary.contracts}
@@ -255,6 +279,7 @@ export default function Report() {
                     onClick={() => { setType(''); setStatus(''); setTerm(''); }}
                 />
                 <KpiMetricCard
+                    icon={MonetizationOnOutlinedIcon}
                     type="sale"
                     label={t('contracts.summary_sales')}
                     value={summary.sales}
@@ -262,6 +287,7 @@ export default function Report() {
                     onClick={() => setType(type === 'sale' ? '' : 'sale')}
                 />
                 <KpiMetricCard
+                    icon={KeyOutlinedIcon}
                     type="rent"
                     label={t('contracts.summary_rents')}
                     value={summary.rents}
@@ -269,6 +295,7 @@ export default function Report() {
                     onClick={() => setType(type === 'rent' ? '' : 'rent')}
                 />
                 <KpiMetricCard
+                    icon={CheckCircleOutlinedIcon}
                     type="active"
                     label={t('contracts.active')}
                     value={summary.active}
@@ -276,6 +303,7 @@ export default function Report() {
                     onClick={() => setStatus(status === 'active' ? '' : 'active')}
                 />
                 <KpiMetricCard
+                    icon={TimerOutlinedIcon}
                     type="expiring"
                     label={t('contracts.expiring')}
                     value={summary.expiring || 0}
@@ -283,6 +311,7 @@ export default function Report() {
                     onClick={() => setTerm(term === 'expiring' ? '' : 'expiring')}
                 />
                 <KpiMetricCard
+                    icon={ArchiveOutlinedIcon}
                     type="archived"
                     label={t('contracts.archived')}
                     value={summary.archived}

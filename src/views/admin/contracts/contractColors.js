@@ -127,30 +127,55 @@ export function getContractColor(type, isDark = false) {
 
 /**
  * Returns style attributes for modern clickable KPI cards.
+ * Neutral background compatible with light and dark mode, highlighting borders and elevation on hover/select.
  */
 export function getContractMetricCardStyle(type, isDark = false, isSelected = false) {
     const colors = getContractColor(type, isDark);
     return {
-        px: 2,
-        py: 1.75,
+        p: 2,
         flex: '1 1 180px',
         minWidth: 160,
-        borderRadius: 2.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        borderRadius: 2,
         cursor: 'pointer',
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        backgroundColor: isSelected ? colors.bgColor : (isDark ? 'rgba(30, 41, 59, 0.5)' : '#ffffff'),
-        borderColor: isSelected ? colors.hoverBorder : colors.borderColor,
+        backgroundColor: 'background.paper',
+        borderColor: isSelected ? colors.hoverBorder : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'),
         borderWidth: isSelected ? 2 : 1,
         borderStyle: 'solid',
         boxShadow: isSelected
-            ? `0 4px 14px ${colors.hoverShadow}`
+            ? (isDark ? `0 4px 14px ${colors.hoverShadow}` : `0 4px 14px ${colors.hoverShadow}`)
             : (isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.04)'),
         '&:hover': {
             borderColor: colors.hoverBorder,
-            backgroundColor: colors.bgColor,
+            backgroundColor: 'background.paper',
             transform: 'translateY(-2px)',
-            boxShadow: `0 6px 18px ${colors.hoverShadow}`,
+            boxShadow: isDark
+                ? `0 6px 20px ${colors.hoverShadow}, 0 2px 6px rgba(0,0,0,0.5)`
+                : `0 6px 20px ${colors.hoverShadow}, 0 2px 6px rgba(0,0,0,0.05)`,
         },
+    };
+}
+
+/**
+ * Returns icon badge container styles (subtle tinted background and border strictly on icon container).
+ */
+export function getContractIconBoxStyle(type, isDark = false) {
+    const colors = getContractColor(type, isDark);
+    return {
+        width: 44,
+        height: 44,
+        borderRadius: 2,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.bgColor,
+        color: colors.iconColor,
+        border: `1px solid ${colors.borderColor}`,
+        flexShrink: 0,
+        transition: 'all 0.2s ease',
     };
 }
 
