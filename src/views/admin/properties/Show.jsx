@@ -12,6 +12,7 @@ import { can } from '@/auth/can';
 import { PropertyMapView } from '@/components/maps';
 import PropertyDesk from './PropertyDesk.jsx';
 import { draftNotReadyMessage, fieldsNotReadyMessage } from './propertyReadiness.js';
+import { propertyError } from './propertyError.js';
 
 function Fact({ label, value }) {
     return (
@@ -194,7 +195,7 @@ export default function Show() {
         : '';
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={property?.title || t('properties.title')}
                 description={property?.reference_number || t('workspace_ui.properties_hint')}
@@ -225,7 +226,7 @@ export default function Show() {
                 </Alert>
             )}
             {property && (
-                <Stack spacing={2}>
+                <Stack spacing={2} sx={{ width: '100%' }}>
                     <Paper variant="outlined" sx={{ p: 3 }}>
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
                             <StatusChip status={property.status} label={t(`properties.statuses.${property.status}`)} />

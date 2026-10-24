@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import fetch from '@/utils/fetch';
 import { formatPrice, currencyLabel } from '@/utils/money.js';
 import PageHeader from '@/components/workspace/PageHeader.jsx';
@@ -12,23 +13,76 @@ import { PdfTable } from '@/components/common/PdfReportTable.jsx';
 import PdfReportPreview from '@/components/common/PdfReportPreview.jsx';
 import useIsRTL from '@/hooks/useIsRTL';
 import { DEFAULT_SUPPLIER_NAME, loadPdfCompany } from '@/utils/pdfCompany';
+import { getPropertyColorTokens } from './propertyColors.js';
+import { propertyWhen } from './propertyError.js';
 
 const TYPES = ['apartment', 'house', 'villa', 'land', 'commercial', 'office', 'warehouse', 'building'];
 const PURPOSES = ['sale', 'rent', 'sale_or_rent'];
 const STATUSES = ['draft', 'available', 'reserved', 'under_contract', 'sold', 'rented', 'inactive', 'archived'];
 
-function SummaryCard({ label, value }) {
+function SummaryCard({ label, value, color = 'total' }) {
     return (
-        <Paper variant="outlined" sx={{ px: 2, py: 1.5, flex: '1 1 140px', minWidth: 140 }}>
+        <Paper
+            variant="outlined"
+            sx={{
+                px: 2,
+                py: 1.5,
+                flex: '1 1 140px',
+                minWidth: 140,
+                borderRadius: 2,
+                transition: 'all 0.2s ease',
+                '&:hover': (theme) => {
+                    const tokens = getPropertyColorTokens(color, theme);
+                    return {
+                        borderColor: tokens.hoverBorder,
+                        boxShadow: `0 4px 14px ${tokens.hoverShadow}`,
+                    };
+                },
+            }}
+        >
             <Typography variant="caption" color="text.secondary">{label}</Typography>
             <Typography variant="h6" fontWeight={700}>{value}</Typography>
         </Paper>
     );
 }
 
-function propertyWhen(value) {
-    if (!value) return '—';
-    return String(value).replace('T', ' ').slice(0, 10);
+function exportCsv(items, t) {
+    if (!items || items.length === 0) return;
+    const headers = [
+        t('properties.reference'),
+        t('properties.name'),
+        t('properties.type'),
+        t('properties.purpose'),
+        t('workspace_ui.status'),
+        t('properties.price'),
+        t('properties.currency', { defaultValue: 'Currency' }),
+        t('properties.area'),
+        t('properties.city'),
+        t('properties.branch'),
+        t('properties.created'),
+    ];
+    const rows = items.map((p) => [
+        `"${(p.reference_number || '').replace(/"/g, '""')}"`,
+        `"${(p.title || '').replace(/"/g, '""')}"`,
+        `"${t(`properties.types.${p.property_type}`, p.property_type)}"`,
+        `"${t(`properties.purposes.${p.purpose}`, p.purpose)}"`,
+        `"${t(`properties.statuses.${p.status}`, p.status)}"`,
+        `"${p.price != null && p.price !== '' ? p.price : ''}"`,
+        `"${p.currency_code || ''}"`,
+        `"${p.area != null && p.area !== '' ? p.area : ''}"`,
+        `"${(p.city || '').replace(/"/g, '""')}"`,
+        `"${(p.branch_name || '').replace(/"/g, '""')}"`,
+        `"${propertyWhen(p.created_at)}"`,
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `properties-report-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function propertyPrice(row, t) {
@@ -190,24 +244,32 @@ export default function Report() {
     );
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={t('properties.report_title')}
                 description={t('properties.report_hint')}
                 action={(
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<FileDownloadOutlinedIcon />}
+                            onClick={() => exportCsv(items, t)}
+                            disabled={loading || !items.length}
+                        >
+                            {t('properties.export_csv')}
+                        </Button>
                         <Button onClick={() => navigate('/admin/properties/index')}>{t('properties.back')}</Button>
                     </Stack>
                 )}
             />
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                <SummaryCard label={t('properties.summary_properties')} value={summary.properties} />
-                <SummaryCard label={t('properties.statuses.available')} value={summary.available} />
-                <SummaryCard label={t('properties.statuses.reserved')} value={summary.reserved} />
-                <SummaryCard label={t('properties.statuses.under_contract')} value={summary.under_contract} />
-                <SummaryCard label={t('properties.statuses.sold')} value={summary.sold} />
-                <SummaryCard label={t('properties.statuses.rented')} value={summary.rented} />
+            <Stack direction="row" useFlexGap spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap', width: '100%' }}>
+                <SummaryCard label={t('properties.summary_properties')} value={summary.properties} color="total" />
+                <SummaryCard label={t('properties.statuses.available')} value={summary.available} color="for_sale" />
+                <SummaryCard label={t('properties.statuses.reserved')} value={summary.reserved} color="under_contract" />
+                <SummaryCard label={t('properties.statuses.under_contract')} value={summary.under_contract} color="under_contract" />
+                <SummaryCard label={t('properties.statuses.sold')} value={summary.sold} color="for_sale" />
+                <SummaryCard label={t('properties.statuses.rented')} value={summary.rented} color="for_rent" />
             </Stack>
             <Box sx={{ mb: 2 }}>
                 <ListToolbar
@@ -277,7 +339,7 @@ export default function Report() {
                     ]}
                 />
             </Box>
-            <Paper variant="outlined" sx={{ overflow: 'hidden', minHeight: 520 }}>
+            <Paper variant="outlined" sx={{ overflow: 'hidden', minHeight: 520, width: '100%' }}>
                 <PdfReportPreview
                     loading={loading}
                     ready={!loading && brandReady}

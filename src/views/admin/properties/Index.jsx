@@ -1,10 +1,33 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Menu, MenuItem, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
+import Swal from 'sweetalert2';
+import {
+    Alert,
+    Box,
+    Button,
+    IconButton,
+    Menu,
+    MenuItem,
+    Paper,
+    Stack,
+    ToggleButton,
+    ToggleButtonGroup,
+    Tooltip,
+    Typography,
+} from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined';
+import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
+import MonetizationOnOutlinedIcon from '@mui/icons-material/MonetizationOnOutlined';
+import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
+import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
+import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined';
+
 import fetch from '@/utils/fetch';
 import { formatPrice, currencyLabel } from '@/utils/money.js';
 import { can } from '@/auth/can';
@@ -19,6 +42,8 @@ import DataTable, { StatusChip } from '@/components/workspace/DataTable.jsx';
 import { useColumnVisibility } from '@/components/workspace/useColumnVisibility.js';
 import { usePagedList } from '@/components/workspace/usePagedList.js';
 import { draftReadinessChip } from './propertyReadiness.js';
+import { getPropertyColorTokens } from './propertyColors.js';
+import { propertyError, propertyWhen } from './propertyError.js';
 
 const PropertyMapView = lazy(() => import('@/components/maps/PropertyMapView.jsx'));
 
@@ -28,19 +53,107 @@ const STATUSES = ['draft', 'available', 'reserved', 'under_contract', 'sold', 'r
 const OPTIONAL_COLUMNS = ['reference', 'type', 'purpose', 'status', 'price', 'city', 'branch', 'agent', 'when'];
 const MAP_PAGE_LIMIT = 100;
 
-function propertyWhen(value) {
-    if (!value) return '—';
-    return String(value).replace('T', ' ').slice(0, 10);
+function MetricCard({ icon: Icon, label, value, color = 'total', active = false, onClick }) {
+    return (
+        <Paper
+            variant="outlined"
+            onClick={onClick}
+            sx={{
+                p: 2,
+                flex: '1 1 180px',
+                minWidth: 160,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: 2,
+                cursor: onClick ? 'pointer' : 'default',
+                borderColor: (theme) => (active ? getPropertyColorTokens(color, theme).hoverBorder : undefined),
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': onClick ? (theme) => {
+                    const tokens = getPropertyColorTokens(color, theme);
+                    return {
+                        borderColor: tokens.hoverBorder,
+                        boxShadow: theme.palette.mode === 'dark'
+                            ? `0 6px 20px ${tokens.hoverShadow}, 0 2px 6px rgba(0,0,0,0.5)`
+                            : `0 6px 20px ${tokens.hoverShadow}, 0 2px 6px rgba(0,0,0,0.05)`,
+                        transform: 'translateY(-2px)',
+                    };
+                } : undefined,
+            }}
+        >
+            <Box
+                sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: (theme) => getPropertyColorTokens(color, theme).bgColor,
+                    color: (theme) => getPropertyColorTokens(color, theme).iconColor,
+                    border: (theme) => `1px solid ${getPropertyColorTokens(color, theme).borderColor}`,
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease',
+                }}
+            >
+                <Icon fontSize="medium" />
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" noWrap display="block">
+                    {label}
+                </Typography>
+                <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                    {value ?? 0}
+                </Typography>
+            </Box>
+        </Paper>
+    );
 }
 
-function propertyError(err, t) {
-    const status = err.response?.status;
-    const message = err.response?.data?.error?.message || '';
-    if (status === 409 && /in use/i.test(message)) return t('properties.in_use');
-    return message || t('login.error');
+function exportCsv(items, t) {
+    if (!items || items.length === 0) return;
+    const headers = [
+        t('properties.reference'),
+        t('properties.name'),
+        t('properties.type'),
+        t('properties.purpose'),
+        t('workspace_ui.status'),
+        t('properties.price'),
+        t('properties.currency', { defaultValue: 'Currency' }),
+        t('properties.area'),
+        t('properties.city'),
+        t('properties.branch'),
+        t('properties.agent'),
+        t('properties.created'),
+    ];
+    const rows = items.map((p) => [
+        `"${(p.reference_number || '').replace(/"/g, '""')}"`,
+        `"${(p.title || '').replace(/"/g, '""')}"`,
+        `"${t(`properties.types.${p.property_type}`, p.property_type)}"`,
+        `"${t(`properties.purposes.${p.purpose}`, p.purpose)}"`,
+        `"${t(`properties.statuses.${p.status}`, p.status)}"`,
+        `"${p.price != null && p.price !== '' ? p.price : ''}"`,
+        `"${p.currency_code || ''}"`,
+        `"${p.area != null && p.area !== '' ? p.area : ''}"`,
+        `"${(p.city || '').replace(/"/g, '""')}"`,
+        `"${(p.branch_name || '').replace(/"/g, '""')}"`,
+        `"${(p.agent_name || '').replace(/"/g, '""')}"`,
+        `"${propertyWhen(p.created_at)}"`,
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `properties-directory-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
-function propertyListParams({ page, limit, q, filters }) {
+function propertyListParams({ page, limit, q, filters, sort }) {
     const params = { page, limit };
     if (q) params.q = q;
     if (filters.status) params.status = filters.status;
@@ -48,9 +161,14 @@ function propertyListParams({ page, limit, q, filters }) {
     if (filters.property_type) params.property_type = filters.property_type;
     if (filters.branch) params.branch = filters.branch;
     if (filters.city) params.city = filters.city;
-    // Neighborhood is only valid with a city (cascading ERP filter).
     if (filters.city && filters.neighborhood) params.neighborhood = filters.neighborhood;
     if (filters.state === 'archived') params.state = 'archived';
+    if (filters.min_price) params.min_price = filters.min_price;
+    if (filters.max_price) params.max_price = filters.max_price;
+    if (filters.min_area) params.min_area = filters.min_area;
+    if (filters.max_area) params.max_area = filters.max_area;
+    if (filters.bedrooms) params.bedrooms = filters.bedrooms;
+    if (sort) params.sort = sort;
     return params;
 }
 
@@ -65,6 +183,11 @@ function filtersFromSearchParams(params) {
         city,
         neighborhood,
         state: params.get('state') === 'archived' ? 'archived' : '',
+        min_price: params.get('min_price') || '',
+        max_price: params.get('max_price') || '',
+        min_area: params.get('min_area') || '',
+        max_area: params.get('max_area') || '',
+        bedrooms: params.get('bedrooms') || '',
     };
 }
 
@@ -77,10 +200,6 @@ export default function Index() {
     const canArchive = can(user, 'property:archive');
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [notice, setNotice] = useState('');
-    const [pending, setPending] = useState(null);
-    const [removing, setRemoving] = useState(false);
-    const [restoreTarget, setRestoreTarget] = useState(null);
-    const [restoring, setRestoring] = useState(false);
     const attachId = useRef(null);
     const imageInput = useRef(null);
     const documentInput = useRef(null);
@@ -101,9 +220,9 @@ export default function Index() {
         return () => { active = false; };
     }, []);
 
-    const fetchPage = useCallback(async ({ page, q, filters }) => {
+    const fetchPage = useCallback(async ({ page, q, filters, sort }) => {
         const res = await fetch.get('properties', {
-            params: propertyListParams({ page, limit: 25, q, filters }),
+            params: propertyListParams({ page, limit: 25, q, filters, sort }),
         });
         return res.data?.data || {};
     }, []);
@@ -121,9 +240,19 @@ export default function Index() {
         });
     }, [applyQuery, params]);
 
+    const summary = list.payload?.summary || {
+        total: 0,
+        for_sale: 0,
+        for_rent: 0,
+        available: 0,
+        under_contract: 0,
+        draft: 0,
+        archived: 0,
+    };
+
     const archived = list.filters.state === 'archived';
-    const archivedCount = list.payload?.summary?.archived || 0;
-    const columns = useColumnVisibility('properties.table.columns', OPTIONAL_COLUMNS);
+    const archivedCount = summary.archived || 0;
+    const columns = useColumnVisibility('properties.table.columns.v3', OPTIONAL_COLUMNS);
     const hidden = new Set(columns.hidden);
     const options = (values, group) => values.map((value) => ({ value, label: t(`${group}.${value}`) }));
     const cityOptions = catalog.map((city) => ({ value: String(city.id), label: city.name }));
@@ -139,7 +268,7 @@ export default function Index() {
         });
     };
 
-    // Map depends on filters + reload only — not list pagination (map loads its own page).
+    // Map depends on filters + reload only — not list pagination
     const mapFilterKey = useMemo(() => JSON.stringify({
         q: list.query,
         status: list.filters.status || '',
@@ -154,8 +283,6 @@ export default function Index() {
 
     const mapReady = mapData.key === mapFilterKey;
     const mapLoading = viewMode === 'map' && !mapReady;
-    // Drop stale markers as soon as filters change so the map matches the toolbar.
-    // useMemo keeps a stable [] when not ready so mappedProperties deps don't thrash every render.
     const mapItems = useMemo(
         () => (mapReady ? mapData.items : []),
         [mapReady, mapData.items],
@@ -222,42 +349,85 @@ export default function Index() {
         list.setError('');
         try {
             await fetch.post(kind === 'image' ? `properties/${id}/images` : `properties/${id}/documents?category=ownership`, body);
-            setNotice(t('properties.attached'));
-            list.reload();
-        } catch (err) {
-            list.setError(err.response?.data?.error?.message || t('login.error'));
-        }
-    };
-
-    const remove = async () => {
-        if (!pending) return;
-        setRemoving(true);
-        list.setError('');
-        try {
-            await fetch.delete(`properties/${pending.id}`);
-            setPending(null);
+            setNotice(t('properties.attached', { defaultValue: 'File attached successfully' }));
             list.reload();
         } catch (err) {
             list.setError(propertyError(err, t));
-            setPending(null);
-        } finally {
-            setRemoving(false);
         }
     };
 
-    const restore = async () => {
-        if (!restoreTarget) return;
-        setRestoring(true);
+    const handleArchive = async (row, event) => {
+        if (event) event.stopPropagation();
+        if (!canArchive) return;
+
+        const confirm = await Swal.fire({
+            title: t('properties.delete_title'),
+            text: t('properties.delete_confirm', { name: row.title }),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: t('common.delete'),
+            cancelButtonText: t('common.cancel'),
+        });
+        if (!confirm.isConfirmed) return;
+
         list.setError('');
         try {
-            await fetch.post(`properties/${restoreTarget.id}/restore`);
-            setRestoreTarget(null);
+            await fetch.delete(`properties/${row.id}`);
+            Swal.fire({
+                icon: 'success',
+                title: t('properties.archived'),
+                text: `${row.title} has been archived.`,
+                timer: 2000,
+                showConfirmButton: false,
+            });
             list.reload();
         } catch (err) {
-            list.setError(propertyError(err, t));
-            setRestoreTarget(null);
-        } finally {
-            setRestoring(false);
+            const errorMsg = propertyError(err, t);
+            Swal.fire({
+                icon: 'error',
+                title: t('common.error'),
+                text: errorMsg,
+                confirmButtonText: t('common.confirm'),
+            });
+            list.setError(errorMsg);
+        }
+    };
+
+    const handleRestore = async (row, event) => {
+        if (event) event.stopPropagation();
+        if (!canArchive) return;
+
+        const confirm = await Swal.fire({
+            title: t('properties.restore_title'),
+            text: t('properties.restore_confirm', { name: row.title }),
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: t('common.restore'),
+            cancelButtonText: t('common.cancel'),
+        });
+        if (!confirm.isConfirmed) return;
+
+        list.setError('');
+        try {
+            await fetch.post(`properties/${row.id}/restore`);
+            Swal.fire({
+                icon: 'success',
+                title: t('properties.active'),
+                text: `${row.title} has been restored.`,
+                timer: 2000,
+                showConfirmButton: false,
+            });
+            list.reload();
+        } catch (err) {
+            const errorMsg = propertyError(err, t);
+            Swal.fire({
+                icon: 'error',
+                title: t('common.error'),
+                text: errorMsg,
+                confirmButtonText: t('common.confirm'),
+            });
+            list.setError(errorMsg);
         }
     };
 
@@ -321,7 +491,7 @@ export default function Index() {
             render: (row) => (
                 <Stack direction="row" spacing={0.5} onClick={(event) => event.stopPropagation()}>
                     {archived ? (
-                        canArchive && <ActionIconButton action="restore" onClick={() => setRestoreTarget(row)} />
+                        canArchive && <ActionIconButton action="restore" onClick={(e) => handleRestore(row, e)} />
                     ) : (
                         <>
                             {canUpdate && (
@@ -333,7 +503,7 @@ export default function Index() {
                             )}
                             <ActionIconButton action="view" onClick={() => navigate(`/admin/properties/${row.id}/show`)} />
                             {canUpdate && <ActionIconButton action="edit" onClick={() => navigate(`/admin/properties/${row.id}/edit`)} />}
-                            {canArchive && <ActionIconButton action="delete" onClick={() => setPending(row)} />}
+                            {canArchive && <ActionIconButton action="delete" onClick={(e) => handleArchive(row, e)} />}
                         </>
                     )}
                 </Stack>
@@ -342,13 +512,23 @@ export default function Index() {
     ];
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={t('properties.title')}
                 action={(
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                         <Button
                             variant="outlined"
+                            startIcon={<FileDownloadOutlinedIcon />}
+                            onClick={() => exportCsv(list.items, t)}
+                            disabled={list.loading || !list.items.length}
+                        >
+                            {t('properties.export_csv')}
+                        </Button>
+
+                        <Button
+                            variant="outlined"
+                            startIcon={<AssessmentOutlinedIcon />}
                             onClick={() => {
                                 const next = new URLSearchParams();
                                 if (list.query) next.set('q', list.query);
@@ -367,21 +547,93 @@ export default function Index() {
                         </Button>
 
                         <Can permission="property:create">
-                            <Button variant="contained" onClick={() => navigate('/admin/properties/create')}>
+                            <Button
+                                variant="contained"
+                                startIcon={<AddCircleOutlineOutlinedIcon />}
+                                onClick={() => navigate('/admin/properties/create')}
+                            >
                                 {t('properties.create')}
                             </Button>
                         </Can>
                     </Stack>
                 )}
             />
+
+            {/* 5 Theme-Adaptive Top KPI Metric Cards */}
+            <Stack
+                direction="row"
+                useFlexGap
+                spacing={2}
+                sx={{ mb: 3, flexWrap: 'wrap', width: '100%' }}
+            >
+                <MetricCard
+                    icon={HomeWorkOutlinedIcon}
+                    label={t('properties.summary_properties')}
+                    value={summary.total}
+                    color="total"
+                    active={!list.filters.purpose && !list.filters.status && !archived}
+                    onClick={() => {
+                        list.setFilter('purpose', '');
+                        list.setFilter('status', '');
+                        list.setFilter('state', '');
+                    }}
+                />
+                <MetricCard
+                    icon={MonetizationOnOutlinedIcon}
+                    label={t('properties.for_sale_count')}
+                    value={summary.for_sale}
+                    color="for_sale"
+                    active={list.filters.purpose === 'sale'}
+                    onClick={() => {
+                        list.setFilter('purpose', list.filters.purpose === 'sale' ? '' : 'sale');
+                        list.setFilter('state', '');
+                    }}
+                />
+                <MetricCard
+                    icon={KeyOutlinedIcon}
+                    label={t('properties.for_rent_count')}
+                    value={summary.for_rent}
+                    color="for_rent"
+                    active={list.filters.purpose === 'rent'}
+                    onClick={() => {
+                        list.setFilter('purpose', list.filters.purpose === 'rent' ? '' : 'rent');
+                        list.setFilter('state', '');
+                    }}
+                />
+                <MetricCard
+                    icon={HandshakeOutlinedIcon}
+                    label={t('properties.under_contract_count')}
+                    value={summary.under_contract}
+                    color="under_contract"
+                    active={list.filters.status === 'under_contract'}
+                    onClick={() => {
+                        list.setFilter('status', list.filters.status === 'under_contract' ? '' : 'under_contract');
+                        list.setFilter('state', '');
+                    }}
+                />
+                <MetricCard
+                    icon={EditNoteOutlinedIcon}
+                    label={t('properties.draft_count')}
+                    value={summary.draft}
+                    color="draft"
+                    active={list.filters.status === 'draft'}
+                    onClick={() => {
+                        list.setFilter('status', list.filters.status === 'draft' ? '' : 'draft');
+                        list.setFilter('state', '');
+                    }}
+                />
+            </Stack>
+
             {list.error && <Alert severity="error" sx={{ mb: 2 }}>{list.error}</Alert>}
             {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
+
             <input ref={imageInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => upload('image', event.target.files?.[0])} />
             <input ref={documentInput} hidden type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => upload('document', event.target.files?.[0])} />
             <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
                 <MenuItem onClick={() => chooseFile('image')}>{t('properties.upload_image')}</MenuItem>
                 <MenuItem onClick={() => chooseFile('document')}>{t('properties.upload_document')}</MenuItem>
             </Menu>
+
             <ListToolbar
                 search={list.query}
                 onSearch={list.setSearch}
@@ -450,8 +702,9 @@ export default function Index() {
                     </Stack>
                 )}
             />
+
             {viewMode === 'map' ? (
-                <Stack spacing={1.5}>
+                <Stack spacing={1.5} sx={{ width: '100%' }}>
                     {mapError && <Alert severity="error">{mapError}</Alert>}
                     {!mapLoading && mapItems.length > 0 && unmappedCount > 0 && (
                         <Alert severity="info">{t('properties.map_unmapped', { count: unmappedCount })}</Alert>
@@ -467,7 +720,7 @@ export default function Index() {
                     <Suspense fallback={<Alert severity="info">{t('common.loading')}</Alert>}>
                         <PropertyMapView
                             properties={mappedProperties}
-                            height={520}
+                            height={540}
                             onOpen={(row) => navigate(`/admin/properties/${row.id}/show`)}
                             emptyLabel={mapLoading ? t('common.loading') : t('properties.map_empty')}
                         />
@@ -495,34 +748,6 @@ export default function Index() {
                     onRowClick={archived ? undefined : (row) => navigate(`/admin/properties/${row.id}/show`)}
                 />
             )}
-            <Dialog open={Boolean(pending)} onClose={() => { if (!removing) setPending(null); }}>
-                <DialogTitle>{t('properties.delete_title')}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>
-                        {pending?.deal_count > 0
-                            ? t('properties.delete_blocked', { name: pending?.title || '', count: pending.deal_count })
-                            : t('properties.delete_confirm', { name: pending?.title || '' })}
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setPending(null)} disabled={removing}>{t('common.cancel')}</Button>
-                    {pending?.deal_count > 0 ? (
-                        <Button variant="contained" onClick={() => { const target = pending; setPending(null); navigate(`/admin/properties/${target.id}/show`); }}>{t('properties.open_property')}</Button>
-                    ) : (
-                        <Button color="error" variant="contained" onClick={remove} disabled={removing}>{t('common.delete')}</Button>
-                    )}
-                </DialogActions>
-            </Dialog>
-            <Dialog open={Boolean(restoreTarget)} onClose={() => { if (!restoring) setRestoreTarget(null); }}>
-                <DialogTitle>{t('properties.restore_title')}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>{t('properties.restore_confirm', { name: restoreTarget?.title || '' })}</DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setRestoreTarget(null)} disabled={restoring}>{t('common.cancel')}</Button>
-                    <Button variant="contained" onClick={restore} disabled={restoring}>{t('common.restore')}</Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 }

@@ -7,6 +7,7 @@ import Can from '@/components/auth/Can.jsx';
 import { groupPriceInput, plainPrice } from '@/utils/money.js';
 import PageHeader from '@/components/workspace/PageHeader.jsx';
 import { PropertyMapPicker } from '@/components/maps';
+import { propertyError } from './propertyError.js';
 
 const TYPES = ['apartment', 'house', 'villa', 'land', 'commercial', 'office', 'warehouse', 'building'];
 const PURPOSES = ['sale', 'rent', 'sale_or_rent'];
@@ -279,14 +280,14 @@ export default function Create() {
             }
             navigate(`/admin/properties/${propertyId}/show`);
         } catch (err) {
-            setError(err.response?.data?.error?.message || t('login.error'));
+            setError(propertyError(err, t));
         } finally {
             setSaving(false);
         }
     };
 
     return (
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <PageHeader
                 title={editing ? t('properties.edit_title') : t('properties.create')}
                 action={(
@@ -297,7 +298,7 @@ export default function Create() {
             />
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {!loading && (
-                <Stack component="form" spacing={2} onSubmit={save} noValidate>
+                <Stack component="form" spacing={2} onSubmit={save} noValidate sx={{ width: '100%' }}>
                     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                         <Typography fontWeight={700} sx={{ mb: 2 }}>{t('properties.details')}</Typography>
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
